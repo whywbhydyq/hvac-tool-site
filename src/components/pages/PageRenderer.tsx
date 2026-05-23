@@ -20,6 +20,7 @@ function ToolPage({ page }: { page: ContentPage }) {
         <div className="mt-5"><ProfessionalBoundary /></div>
       </section>
       <section className="mx-auto max-w-6xl px-4"><ToolCalculator kind={page.toolKind!} /></section>
+      <section className="mx-auto max-w-6xl px-4 py-8"><ResultUseCard /></section>
       <section className="mx-auto grid max-w-6xl gap-5 px-4 py-8 md:grid-cols-2">
         <InfoCard title="What is included" items={page.includes ?? []} />
         <InfoCard title="What is not included" items={page.excludes ?? []} />
@@ -49,6 +50,11 @@ function ArticlePage({ page }: { page: ContentPage }) {
   );
 }
 
+function ResultUseCard() {
+  const items = ['Compare the range and formula before changing inputs.', 'Use the notes to understand which assumptions moved the result.', 'Copy, download or print the result for later review.'];
+  return <div className="rounded-3xl border border-line bg-white p-6 shadow-sm"><h2 className="text-2xl font-black tracking-tight">How to use this result</h2><ul className="mt-4 grid gap-3 text-slate-700 md:grid-cols-3">{items.map((item) => <li key={item} className="rounded-2xl bg-slate-50 p-4">{item}</li>)}</ul></div>;
+}
+
 function InfoCard({ title, items }: { title: string; items: string[] }) {
   return <div className="rounded-3xl border border-line bg-white p-6 shadow-sm"><h2 className="text-2xl font-black tracking-tight">{title}</h2><ul className="mt-4 space-y-2 text-slate-700">{items.map((item) => <li key={item}>• {item}</li>)}</ul></div>;
 }
@@ -59,5 +65,5 @@ function Faq({ page }: { page: ContentPage }) {
 }
 
 function RelatedTools({ current }: { current: string }) {
-  return <div className="rounded-3xl border border-line bg-white p-6 shadow-sm"><h2 className="text-2xl font-black tracking-tight">Related calculators</h2><p className="mt-4 flex flex-wrap gap-3">{allTools.filter((tool) => tool.path !== current).slice(0, 8).map((tool) => <Link key={tool.path} href={tool.path}>{tool.h1}</Link>)}</p></div>;
+  return <div className="rounded-3xl border border-line bg-white p-6 shadow-sm"><h2 className="text-2xl font-black tracking-tight">Related calculators</h2><p className="mt-4 flex flex-wrap gap-3">{allTools.filter((tool) => tool.path !== current).slice(0, 5).map((tool) => <Link key={tool.path} href={tool.path}>{tool.h1}</Link>)}</p></div>;
 }

@@ -1,6 +1,6 @@
 export const SITE = {
   name: 'Room Comfort Calculators',
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://hvac-tool-site.vercel.app',
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://hvac.ymirtool.com',
   description: 'Free room-level HVAC calculators for AC BTU, portable AC size, dehumidifier pints, CFM, ACH, bathroom fan sizing, garage ventilation and unit conversions.',
   sourceLastCheckedAt: '2026-05-22'
 };

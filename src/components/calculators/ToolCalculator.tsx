@@ -1,0 +1,161 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import type { ToolKind } from '@/src/content/pages';
+import { calculateAcBtu } from '@/src/lib/calculators/ac-btu';
+import { calculateDehumidifierSize } from '@/src/lib/calculators/dehumidifier-size';
+import { calculateCfmByAch, calculateAch } from '@/src/lib/calculators/cfm-ach';
+import { calculateBathroomFanCfm } from '@/src/lib/calculators/bathroom-fan';
+import { calculateGarageVentilation } from '@/src/lib/calculators/garage-ventilation';
+import { btuToThermalKw, btuToTons, litersToPints, pintsToLiters, thermalKwToBtu, tonsToBtu } from '@/src/lib/calculators/btu-conversions';
+import { PROFESSIONAL_BOUNDARY } from '@/src/content/site';
+import { formatNumber } from '@/src/lib/formatting/numbers';
+import { encodeShareParams } from '@/src/lib/share/encode';
+import { toCsv } from '@/src/lib/csv/export';
+import { ExportButtons } from '@/src/components/export/ExportButtons';
+
+const defaults = {
+  lengthFt: '12', widthFt: '10', areaSqft: '', ceilingHeightFt: '8', sunExposure: 'average', occupants: '2', insulation: 'average', kitchen: false,
+  dampness: 'damp', basement: false, temperatureF: '70', waterIntrusion: false, continuousDrain: false,
+  targetAch: '6', cfm: '100', toilet: '1', shower: '1', tub: '0', jettedTub: '0', ductLengthFt: '10', btu: '12000', tons: '1', kw: '3.5', pints: '50', liters: '24'
+};
+
+type Values = typeof defaults;
+
+function num(value: string, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="grid gap-1 text-sm font-bold text-slate-700">{label}{children}</label>;
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-2xl border border-line bg-slate-50 p-4"><strong className="block text-lg">{value}</strong><span className="text-sm text-slate-500">{label}</span></div>;
+}
+
+export function ToolCalculator({ kind }: { kind: ToolKind }) {
+  const [values, setValues] = useState<Values>(defaults);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setValues((current) => {
+      const next = { ...current };
+      for (const key of Object.keys(next) as Array<keyof Values>) {
+        const value = params.get(key);
+        if (value == null) continue;
+        if (typeof next[key] === 'boolean') (next as Record<string, string | boolean>)[key] = value === 'true' || value === 'on';
+        else (next as Record<string, string | boolean>)[key] = value;
+      }
+      return next;
+    });
+  }, []);
+
+  const input = useMemo(() => ({
+    lengthFt: num(values.lengthFt, 12), widthFt: num(values.widthFt, 10), areaSqft: num(values.areaSqft, 0), ceilingHeightFt: num(values.ceilingHeightFt, 8),
+    sunExposure: values.sunExposure as 'average' | 'shaded' | 'sunny', occupants: num(values.occupants, 2), insulation: values.insulation as 'poor' | 'average' | 'good', kitchen: values.kitchen,
+    dampness: values.dampness as 'slightly-damp' | 'damp' | 'very-damp' | 'wet', basement: values.basement, temperatureF: num(values.temperatureF, 70), waterIntrusion: values.waterIntrusion, continuousDrain: values.continuousDrain,
+    targetAch: num(values.targetAch, 6), cfm: num(values.cfm, 100), toilet: num(values.toilet, 1), shower: num(values.shower, 1), tub: num(values.tub, 0), jettedTub: num(values.jettedTub, 0), ductLengthFt: num(values.ductLengthFt, 10),
+    btu: num(values.btu, 12000), tons: num(values.tons, 1), kw: num(values.kw, 3.5), pints: num(values.pints, 50), liters: num(values.liters, 24)
+  }), [values]);
+
+  const result = useMemo(() => renderResult(kind, input), [kind, input]);
+
+  function set(name: keyof Values, value: string | boolean) {
+    setValues((current) => ({ ...current, [name]: value }));
+  }
+
+  function shareUrl() {
+    const params = encodeShareParams(values as unknown as Record<string, string | number | boolean | undefined>);
+    return `${window.location.origin}${window.location.pathname}?${params}`;
+  }
+
+  function exportCsv() {
+    const csv = toCsv([['field', 'value'], ['tool', kind], ['result', result.summary], ['boundary', PROFESSIONAL_BOUNDARY], ...Object.entries(values)]);
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${kind}-result.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const copy = (text: string) => navigator.clipboard?.writeText(text);
+
+  return (
+    <section className="grid gap-6 lg:grid-cols-[1fr_.9fr]">
+      <form className="rounded-3xl border border-line bg-white p-6 shadow-sm" onSubmit={(event) => event.preventDefault()}>
+        <h2 className="text-2xl font-black tracking-tight">Inputs</h2>
+        <div className="mt-5 grid gap-4 md:grid-cols-2">{renderInputs(kind, values, set)}</div>
+        <ExportButtons onCopyResult={() => copy(result.summary)} onCopyAssumptions={() => copy(PROFESSIONAL_BOUNDARY)} onShare={() => copy(shareUrl())} onCsv={exportCsv} />
+      </form>
+      <aside className="rounded-3xl border border-line bg-white p-6 shadow-sm" aria-live="polite">
+        <h2 className="text-2xl font-black tracking-tight">Result</h2>
+        <p className="mt-4 text-3xl font-black leading-tight tracking-tight">{result.summary}</p>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">{result.metrics.map((metric) => <Metric key={metric.label} {...metric} />)}</div>
+        <pre className="mt-5 overflow-auto rounded-2xl bg-slate-950 p-4 text-sm text-slate-100">{result.formula}</pre>
+        <ul className="mt-5 space-y-2 text-sm text-slate-700">{result.notes.map((note) => <li key={note}>• {note}</li>)}</ul>
+        <div className="mt-5 space-y-2">{result.warnings.map((warning) => <div key={warning} className="rounded-2xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900">{warning}</div>)}</div>
+      </aside>
+    </section>
+  );
+}
+
+function renderInputs(kind: ToolKind, values: Values, set: (name: keyof Values, value: string | boolean) => void) {
+  const room = <>
+    <Field label="Length ft"><input className="rounded-xl border border-line p-2" value={values.lengthFt} onChange={(e) => set('lengthFt', e.target.value)} type="number" min="1" step="0.1" /></Field>
+    <Field label="Width ft"><input className="rounded-xl border border-line p-2" value={values.widthFt} onChange={(e) => set('widthFt', e.target.value)} type="number" min="1" step="0.1" /></Field>
+    <Field label="Area override sq ft"><input className="rounded-xl border border-line p-2" value={values.areaSqft} onChange={(e) => set('areaSqft', e.target.value)} type="number" min="0" /></Field>
+    <Field label="Ceiling height ft"><input className="rounded-xl border border-line p-2" value={values.ceilingHeightFt} onChange={(e) => set('ceilingHeightFt', e.target.value)} type="number" min="1" step="0.1" /></Field>
+  </>;
+  if (['ac', 'window-ac', 'portable-ac'].includes(kind)) return <>{room}<Field label="Sun exposure"><select className="rounded-xl border border-line p-2" value={values.sunExposure} onChange={(e) => set('sunExposure', e.target.value)}><option value="average">Average</option><option value="shaded">Heavily shaded</option><option value="sunny">Very sunny</option></select></Field><Field label="Occupants"><input className="rounded-xl border border-line p-2" value={values.occupants} onChange={(e) => set('occupants', e.target.value)} type="number" min="0" /></Field><Field label="Insulation"><select className="rounded-xl border border-line p-2" value={values.insulation} onChange={(e) => set('insulation', e.target.value)}><option value="average">Average</option><option value="poor">Poor</option><option value="good">Good</option></select></Field><label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input checked={values.kitchen} onChange={(e) => set('kitchen', e.target.checked)} type="checkbox" />Kitchen / heat source</label></>;
+  if (['dehumidifier', 'basement-dehumidifier'].includes(kind)) return <><Field label="Area sq ft"><input className="rounded-xl border border-line p-2" value={values.areaSqft || '1000'} onChange={(e) => set('areaSqft', e.target.value)} type="number" min="1" /></Field><Field label="Dampness"><select className="rounded-xl border border-line p-2" value={values.dampness} onChange={(e) => set('dampness', e.target.value)}><option value="slightly-damp">Slightly damp</option><option value="damp">Damp</option><option value="very-damp">Very damp</option><option value="wet">Wet</option></select></Field><Field label="Temperature F"><input className="rounded-xl border border-line p-2" value={values.temperatureF} onChange={(e) => set('temperatureF', e.target.value)} type="number" min="40" max="100" /></Field><label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input checked={kind === 'basement-dehumidifier' || values.basement} onChange={(e) => set('basement', e.target.checked)} type="checkbox" />Basement</label><label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input checked={values.waterIntrusion} onChange={(e) => set('waterIntrusion', e.target.checked)} type="checkbox" />Water intrusion</label><label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input checked={values.continuousDrain} onChange={(e) => set('continuousDrain', e.target.checked)} type="checkbox" />Continuous drain</label></>;
+  if (['cfm-by-ach', 'garage'].includes(kind)) return <>{room}<Field label="Target ACH"><input className="rounded-xl border border-line p-2" value={values.targetAch} onChange={(e) => set('targetAch', e.target.value)} type="number" min="0.1" step="0.1" /></Field></>;
+  if (kind === 'ach') return <>{room}<Field label="Fan CFM"><input className="rounded-xl border border-line p-2" value={values.cfm} onChange={(e) => set('cfm', e.target.value)} type="number" min="1" /></Field></>;
+  if (kind === 'bathroom-fan') return <><Field label="Area sq ft"><input className="rounded-xl border border-line p-2" value={values.areaSqft || '80'} onChange={(e) => set('areaSqft', e.target.value)} type="number" min="1" /></Field><Field label="Toilets"><input className="rounded-xl border border-line p-2" value={values.toilet} onChange={(e) => set('toilet', e.target.value)} type="number" min="0" /></Field><Field label="Showers"><input className="rounded-xl border border-line p-2" value={values.shower} onChange={(e) => set('shower', e.target.value)} type="number" min="0" /></Field><Field label="Tubs"><input className="rounded-xl border border-line p-2" value={values.tub} onChange={(e) => set('tub', e.target.value)} type="number" min="0" /></Field><Field label="Jetted tubs"><input className="rounded-xl border border-line p-2" value={values.jettedTub} onChange={(e) => set('jettedTub', e.target.value)} type="number" min="0" /></Field><Field label="Duct length ft"><input className="rounded-xl border border-line p-2" value={values.ductLengthFt} onChange={(e) => set('ductLengthFt', e.target.value)} type="number" min="0" /></Field></>;
+  if (kind === 'tonnage') return <><Field label="BTU/h"><input className="rounded-xl border border-line p-2" value={values.btu} onChange={(e) => set('btu', e.target.value)} type="number" min="1" /></Field><Field label="Tons"><input className="rounded-xl border border-line p-2" value={values.tons} onChange={(e) => set('tons', e.target.value)} type="number" min="0" step="0.1" /></Field></>;
+  if (kind === 'btu-kw') return <><Field label="BTU/h"><input className="rounded-xl border border-line p-2" value={values.btu} onChange={(e) => set('btu', e.target.value)} type="number" min="1" /></Field><Field label="Thermal kW"><input className="rounded-xl border border-line p-2" value={values.kw} onChange={(e) => set('kw', e.target.value)} type="number" min="0" step="0.1" /></Field></>;
+  return <><Field label="US pints"><input className="rounded-xl border border-line p-2" value={values.pints} onChange={(e) => set('pints', e.target.value)} type="number" min="0" /></Field><Field label="Liters"><input className="rounded-xl border border-line p-2" value={values.liters} onChange={(e) => set('liters', e.target.value)} type="number" min="0" /></Field></>;
+}
+
+function renderResult(kind: ToolKind, input: ReturnType<typeof Object>) {
+  const data = input as Record<string, number | string | boolean>;
+  if (['ac', 'window-ac', 'portable-ac'].includes(kind)) {
+    const result = calculateAcBtu(data as never);
+    return { summary: `${formatNumber(result.rangeLow)}-${formatNumber(result.rangeHigh)} BTU/h`, metrics: [{ label: 'Area', value: `${formatNumber(result.areaSqft)} sq ft` }, { label: 'Base estimate', value: `${formatNumber(result.baseBtu)} BTU/h` }, { label: 'Tons', value: `${formatNumber(result.tonsLow, 1)}-${formatNumber(result.tonsHigh, 1)}` }, { label: 'Common sizes', value: result.commonSizes.map((size) => formatNumber(size)).join(', ') }], formula: 'base_BTU = area × 20\nadjusted_BTU = base + sun/shade + occupants + kitchen + height + insulation\nrange = adjusted_BTU × 90%-110%', notes: result.adjustments.map((item) => `${item.label}: ${formatNumber(item.valueBtu)} BTU/h (${item.note})`), warnings: [...result.warnings, ...(kind === 'portable-ac' ? ['Check SACC, CEER, hose design, exhaust sealing and product label before buying.'] : [])] };
+  }
+  if (['dehumidifier', 'basement-dehumidifier'].includes(kind)) {
+    const result = calculateDehumidifierSize({ ...(data as never), basement: kind === 'basement-dehumidifier' || Boolean(data.basement) });
+    return { summary: `${formatNumber(result.rangeLow)}-${formatNumber(result.rangeHigh)} pints/day`, metrics: [{ label: 'Area', value: `${formatNumber(result.areaSqft)} sq ft` }, { label: 'Product class', value: result.productClass }, { label: 'Drainage', value: result.drainageRecommendation }, { label: 'High range', value: `${formatNumber(result.rangeHigh)} pints/day` }], formula: 'base_pints_per_day = lookup(area, dampness)\nrange = base + basement / temperature / water-source cautions', notes: result.adjustments, warnings: result.warnings };
+  }
+  if (kind === 'cfm-by-ach') {
+    const result = calculateCfmByAch(data as never);
+    return { summary: `${formatNumber(result.cfm)} CFM`, metrics: [{ label: 'Volume', value: `${formatNumber(result.volumeCuft)} cu ft` }, { label: 'Target ACH', value: `${formatNumber(result.targetAch, 1)}` }], formula: 'CFM = room_volume_cuft × target_ACH ÷ 60', notes: [], warnings: result.warnings };
+  }
+  if (kind === 'garage') {
+    const result = calculateGarageVentilation(data as never);
+    return { summary: `${formatNumber(result.cfm)} CFM`, metrics: [{ label: 'Volume', value: `${formatNumber(result.volumeCuft)} cu ft` }, { label: 'Target ACH', value: `${formatNumber(result.targetAch, 1)}` }], formula: 'CFM = garage_volume_cuft × target_ACH ÷ 60', notes: ['Not for commercial garages, CO control or code compliance.'], warnings: result.warnings };
+  }
+  if (kind === 'ach') {
+    const result = calculateAch(data as never);
+    return { summary: `${formatNumber(result.ach, 1)} ACH`, metrics: [{ label: 'Volume', value: `${formatNumber(result.volumeCuft)} cu ft` }, { label: 'CFM', value: `${formatNumber(result.cfm)} CFM` }], formula: 'ACH = CFM × 60 ÷ room_volume_cuft', notes: [], warnings: result.warnings };
+  }
+  if (kind === 'bathroom-fan') {
+    const result = calculateBathroomFanCfm(data as never);
+    return { summary: `${formatNumber(result.recommendedCfm)} CFM`, metrics: [{ label: 'Area rule', value: `${formatNumber(result.areaRuleCfm)} CFM` }, { label: 'Fixture rule', value: `${formatNumber(result.fixtureRuleCfm)} CFM` }], formula: 'CFM = max(area × 1, 50, fixture model)', notes: [], warnings: result.warnings };
+  }
+  if (kind === 'tonnage') {
+    const btu = Number(data.btu);
+    const tons = Number(data.tons);
+    return { summary: `${formatNumber(btu)} BTU/h = ${formatNumber(btuToTons(btu), 2)} tons`, metrics: [{ label: 'BTU to tons', value: `${formatNumber(btuToTons(btu), 2)} tons` }, { label: 'Tons to BTU', value: `${formatNumber(tonsToBtu(tons))} BTU/h` }], formula: 'tons = BTU/h ÷ 12,000', notes: ['Cooling tonnage is a capacity unit, not a full central-system selection.'], warnings: [PROFESSIONAL_BOUNDARY] };
+  }
+  if (kind === 'btu-kw') {
+    const btu = Number(data.btu);
+    const kw = Number(data.kw);
+    return { summary: `${formatNumber(btu)} BTU/h = ${formatNumber(btuToThermalKw(btu), 2)} thermal kW`, metrics: [{ label: 'BTU to thermal kW', value: `${formatNumber(btuToThermalKw(btu), 2)} kW` }, { label: 'Thermal kW to BTU', value: `${formatNumber(thermalKwToBtu(kw))} BTU/h` }], formula: 'thermal_kW = BTU/h × 0.000293071', notes: ['Thermal kW is not electrical input power; efficiency determines watts.'], warnings: [PROFESSIONAL_BOUNDARY] };
+  }
+  const pints = Number(data.pints);
+  const liters = Number(data.liters);
+  return { summary: `${formatNumber(pints)} pints/day = ${formatNumber(pintsToLiters(pints), 1)} L/day`, metrics: [{ label: 'Pints to liters', value: `${formatNumber(pintsToLiters(pints), 1)} L` }, { label: 'Liters to pints', value: `${formatNumber(litersToPints(liters), 1)} pints` }], formula: 'liters = pints × 0.473176473', notes: ['Dehumidifier capacity is not the same as bucket volume.'], warnings: [PROFESSIONAL_BOUNDARY] };
+}

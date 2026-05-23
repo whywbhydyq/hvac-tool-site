@@ -1,0 +1,16 @@
+import {existsSync,readdirSync,readFileSync} from 'node:fs';
+import {join} from 'node:path';
+const dist='dist';
+if(!existsSync(join(dist,'index.html'))) throw new Error('missing homepage build output');
+for(const p of ['sitemap.xml','robots.txt','ads.txt','assets/app.js','assets/site.css']) if(!existsSync(join(dist,p))) throw new Error('missing '+p);
+const sitemap=readFileSync(join(dist,'sitemap.xml'),'utf8');
+const urls=[...sitemap.matchAll(/<loc>/g)].length;
+if(urls<38) throw new Error('expected at least 38 sitemap URLs, got '+urls);
+const home=readFileSync(join(dist,'index.html'),'utf8');
+const ac=readFileSync(join(dist,'room-ac-btu-calculator','index.html'),'utf8');
+for(const text of ['Manual J','WebApplication','Dehumidifier']) if(!home.includes(text)) throw new Error('missing content '+text);
+if(!readFileSync(join(dist,'bathroom-fan-cfm-calculator','index.html'),'utf8').includes('Bathroom Fan')) throw new Error('missing bathroom fan page');
+if(!ac.includes('Download CSV')) throw new Error('missing CSV export control');
+const cfm=12*10*8*6/60, ach=100*60/(12*10*8), tons=24000/12000;
+if(cfm!==96||Math.round(ach*10)/10!==6.3||tons!==2) throw new Error('formula check failed');
+console.log(`check: ok (${urls} sitemap URLs)`);

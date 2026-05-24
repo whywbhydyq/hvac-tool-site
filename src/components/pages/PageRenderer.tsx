@@ -31,7 +31,6 @@ function ToolPage({ page }: { page: ContentPage }) {
       <section className="mx-auto max-w-6xl px-4 py-8"><SourceList /></section>
       <section className="mx-auto max-w-6xl px-4 py-8"><Faq page={page} /></section>
       <section className="mx-auto max-w-6xl px-4 py-8"><RelatedTools current={page.path} /></section>
-      <div className="mx-auto max-w-6xl px-4"><div className="rounded-2xl border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500">AdSense-ready placement kept away from calculator controls.</div></div>
     </>
   );
 }

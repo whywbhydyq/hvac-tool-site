@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { DampnessLevel } from '@/src/lib/config/dehumidifier-assumptions';
 import type { ToolKind } from '@/src/content/pages';
 import { calculateAcBtu, type AcBtuInput } from '@/src/lib/calculators/ac-btu';
@@ -31,10 +31,21 @@ type CalculatorInput = {
 };
 
 type RenderedResult = { summary: string; metrics: Array<{ label: string; value: string }>; formula: string; notes: string[]; warnings: string[] };
+type AnalyticsWindow = Window & {
+  dataLayer?: Array<Record<string, unknown>>;
+  gtag?: (command: 'event', eventName: string, params?: Record<string, unknown>) => void;
+};
 
 function num(value: string, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function trackToolEvent(eventName: string, params: Record<string, string | number | boolean>) {
+  if (typeof window === 'undefined') return;
+  const analyticsWindow = window as AnalyticsWindow;
+  analyticsWindow.dataLayer?.push({ event: eventName, ...params });
+  analyticsWindow.gtag?.('event', eventName, params);
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -47,6 +58,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 export function ToolCalculator({ kind }: { kind: ToolKind }) {
   const [values, setValues] = useState<Values>(defaults);
+  const hasStartedInput = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -72,8 +84,21 @@ export function ToolCalculator({ kind }: { kind: ToolKind }) {
 
   const result = useMemo(() => renderResult(kind, input), [kind, input]);
 
+  useEffect(() => {
+    trackToolEvent('result_shown', { tool_type: kind, result_bucket: result.summary, has_warning: result.warnings.length > 0 });
+  }, [kind, result.summary, result.warnings.length]);
+
   function set(name: keyof Values, value: string | boolean) {
+    if (!hasStartedInput.current) {
+      trackToolEvent('tool_input_start', { tool_type: kind, input_name: String(name) });
+      hasStartedInput.current = true;
+    }
     setValues((current) => ({ ...current, [name]: value }));
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    trackToolEvent('tool_submit', { tool_type: kind, result_bucket: result.summary, has_warning: result.warnings.length > 0 });
   }
 
   function shareUrl() {
@@ -89,16 +114,27 @@ export function ToolCalculator({ kind }: { kind: ToolKind }) {
     a.download = `${kind}-result.csv`;
     a.click();
     URL.revokeObjectURL(url);
+    trackToolEvent('download_csv', { tool_type: kind, result_bucket: result.summary });
+  }
+
+  function copyResult() {
+    copy(result.summary);
+    trackToolEvent('copy_result', { tool_type: kind, result_bucket: result.summary });
+  }
+
+  function copyShareUrl() {
+    copy(shareUrl());
+    trackToolEvent('copy_share_link', { tool_type: kind, result_bucket: result.summary });
   }
 
   const copy = (text: string) => navigator.clipboard?.writeText(text);
 
   return (
     <section className="grid gap-6 lg:grid-cols-[1fr_.9fr]">
-      <form className="rounded-3xl border border-line bg-white p-6 shadow-sm" onSubmit={(event) => event.preventDefault()}>
+      <form className="rounded-3xl border border-line bg-white p-6 shadow-sm" onSubmit={handleSubmit}>
         <h2 className="text-2xl font-black tracking-tight">Inputs</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-2">{renderInputs(kind, values, set)}</div>
-        <ExportButtons onCopyResult={() => copy(result.summary)} onCopyAssumptions={() => copy(PROFESSIONAL_BOUNDARY)} onShare={() => copy(shareUrl())} onCsv={exportCsv} />
+        <ExportButtons onCopyResult={copyResult} onCopyAssumptions={() => copy(PROFESSIONAL_BOUNDARY)} onShare={copyShareUrl} onCsv={exportCsv} />
       </form>
       <aside className="rounded-3xl border border-line bg-white p-6 shadow-sm" aria-live="polite">
         <h2 className="text-2xl font-black tracking-tight">Result</h2>

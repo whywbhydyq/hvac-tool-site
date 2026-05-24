@@ -7,6 +7,7 @@ export function SiteFooter() {
       <div className="mx-auto max-w-6xl px-4">
         <p>{PROFESSIONAL_BOUNDARY}</p>
         <p className="mt-3 flex flex-wrap gap-3">
+          <Link href="/about/">About</Link>
           <Link href="/privacy/">Privacy</Link>
           <Link href="/terms/">Terms</Link>
           <Link href="/disclaimer/">Disclaimer</Link>

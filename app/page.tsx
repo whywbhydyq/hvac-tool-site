@@ -5,14 +5,14 @@ import { SourceList } from '@/src/components/assumptions/SourceList';
 import { CardGrid } from '@/src/components/ui/CardGrid';
 
 export const metadata: Metadata = {
-  title: 'HVAC Calculators for AC BTU, Dehumidifier Size, CFM & ACH',
+  title: 'HVAC Load & Duct Size Calculators',
   description:
-    'Free browser-side HVAC calculators for room AC BTU, portable AC size, dehumidifier pints/day, CFM, ACH, bathroom fan CFM and unit conversions.',
+    'Estimate HVAC load, airflow, duct size, room CFM, ventilation, AC BTU, dehumidifier pints, bathroom fan sizing and unit conversions for preliminary planning.',
   alternates: { canonical: '/' },
   openGraph: {
-    title: 'HVAC Calculators for AC BTU, Dehumidifier Size, CFM & ACH',
+    title: 'HVAC Load & Duct Size Calculators',
     description:
-      'Estimate room-level HVAC numbers with visible formulas, assumptions and copyable results.',
+      'Estimate room-level HVAC load, airflow, CFM, ACH and comfort numbers with visible formulas, assumptions and professional boundaries.',
     url: '/'
   }
 };
@@ -26,10 +26,10 @@ export default function HomePage() {
         <div>
           <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-700">Free browser-side HVAC calculators</p>
           <h1 className="mt-4 max-w-4xl text-5xl font-black leading-tight tracking-[-0.05em] md:text-7xl">
-            Free HVAC Calculators for AC Size, Dehumidifiers, CFM and ACH
+            HVAC Calculators for Load, Airflow, and Duct Sizing
           </h1>
           <p className="mt-6 max-w-3xl text-lg text-slate-600">
-            Estimate room-level cooling, dehumidifier and ventilation numbers from simple inputs like room size, ceiling height, dampness level, target ACH and fixtures. Results show the formula, assumptions, common size ranges and next checks.
+            Estimate room-level cooling load, airflow, duct planning values, dehumidifier capacity and ventilation numbers from simple inputs like room size, ceiling height, dampness level, target ACH and fixtures. Results show the formula, assumptions, common size ranges and next checks.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white no-underline" href="/room-ac-btu-calculator/">
@@ -40,7 +40,7 @@ export default function HomePage() {
             </Link>
           </div>
           <p className="mt-5 max-w-2xl text-sm text-slate-500">
-            Built for quick room-by-room planning: visible math, source notes, shareable inputs and copyable results.
+            Built for preliminary room-by-room planning: visible math, source notes, shareable inputs and copyable results. Verify final decisions with local codes, product manuals and licensed professionals.
           </p>
         </div>
         <div className="rounded-3xl border border-line bg-white p-6 shadow-xl shadow-slate-900/10">

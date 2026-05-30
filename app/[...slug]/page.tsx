@@ -6,6 +6,7 @@ import { SITE } from '@/src/content/site';
 import { structuredDataForPage } from '@/src/lib/seo/structured-data';
 
 type Params = { slug: string[] };
+type DynamicPageProps = { params: Promise<Params> };
 
 export function generateStaticParams(): Params[] {
   return allContentPages.map((page) => ({
@@ -13,8 +14,9 @@ export function generateStaticParams(): Params[] {
   }));
 }
 
-export function generateMetadata({ params }: { params: Params }): Metadata {
-  const page = findPageBySlug(params.slug);
+export async function generateMetadata({ params }: DynamicPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const page = findPageBySlug(slug);
   if (!page) return {};
   return {
     title: page.title,
@@ -28,8 +30,9 @@ export function generateMetadata({ params }: { params: Params }): Metadata {
   };
 }
 
-export default function DynamicPage({ params }: { params: Params }) {
-  const page = findPageBySlug(params.slug);
+export default async function DynamicPage({ params }: DynamicPageProps) {
+  const { slug } = await params;
+  const page = findPageBySlug(slug);
   if (!page) notFound();
   return (
     <>

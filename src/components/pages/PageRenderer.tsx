@@ -13,14 +13,17 @@ export function PageRenderer({ page }: { page: ContentPage }) {
 function ToolPage({ page }: { page: ContentPage }) {
   return (
     <>
-      <section className="mx-auto max-w-6xl px-4 py-14">
+      <section className="mx-auto max-w-6xl px-4 pb-6 pt-10 md:pt-12">
         <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-700">Calculator</p>
-        <h1 className="mt-4 text-5xl font-black leading-tight tracking-[-0.05em] md:text-6xl">{page.h1}</h1>
-        <p className="mt-5 max-w-3xl text-lg text-slate-600">{page.description}</p>
-        <div className="mt-5"><ProfessionalBoundary /></div>
+        <h1 className="mt-3 text-4xl font-black leading-tight tracking-[-0.04em] md:text-6xl">{page.h1}</h1>
+        <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600 md:text-lg">{page.description}</p>
+        <p className="mt-4 inline-flex rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-950">
+          Preliminary planning only. Use formulas and notes as a starting point, then verify final decisions with local code, product manuals and qualified review.
+        </p>
       </section>
       <section className="mx-auto max-w-6xl px-4"><ToolCalculator kind={page.toolKind!} /></section>
       <section className="mx-auto max-w-6xl px-4 py-8"><ResultUseCard /></section>
+      <section className="mx-auto max-w-6xl px-4 py-8"><ProfessionalBoundary /></section>
       <section className="mx-auto max-w-6xl px-4 py-8"><ContentSections sections={page.sections} /></section>
       <section className="mx-auto max-w-6xl px-4 py-8"><WorkedExamples examples={page.examples} /></section>
       <section className="mx-auto grid max-w-6xl gap-5 px-4 py-8 md:grid-cols-2">
@@ -37,16 +40,18 @@ function ToolPage({ page }: { page: ContentPage }) {
 
 function ArticlePage({ page }: { page: ContentPage }) {
   const showSources = page.kind !== 'support';
+  const preset = presetForPage(page);
   return (
-    <section className="mx-auto max-w-4xl px-4 py-14">
+    <section className="mx-auto max-w-4xl px-4 py-12">
       <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-700">{page.kind}</p>
-      <h1 className="mt-4 text-5xl font-black leading-tight tracking-[-0.05em]">{page.h1}</h1>
+      <h1 className="mt-4 text-4xl font-black leading-tight tracking-[-0.04em] md:text-5xl">{page.h1}</h1>
       <p className="mt-5 text-lg text-slate-600">{page.description}</p>
       {page.directAnswer ? <article className="mt-8 rounded-3xl border border-line bg-white p-6 shadow-sm">
         <h2 className="text-2xl font-black tracking-tight">Quick answer</h2>
         <p className="mt-3 text-slate-700">{page.directAnswer}</p>
-        {page.relatedToolPath ? <Link className="mt-5 inline-block rounded-full bg-blue-700 px-5 py-3 font-bold text-white no-underline" href={page.relatedToolPath}>Open related calculator</Link> : null}
+        {page.relatedToolPath ? <Link className="mt-5 inline-block rounded-full bg-blue-700 px-5 py-3 font-bold text-white no-underline" href={preset?.href ?? page.relatedToolPath}>Open related calculator</Link> : null}
       </article> : null}
+      {preset ? <PresetCard preset={preset} /> : null}
       <div className="mt-8"><ContentSections sections={page.sections} /></div>
       <div className="mt-8"><WorkedExamples examples={page.examples} /></div>
       <div className="mt-8"><RelatedLinks page={page} /></div>
@@ -92,4 +97,69 @@ function Faq({ page }: { page: ContentPage }) {
 
 function RelatedTools({ current }: { current: string }) {
   return <div className="rounded-3xl border border-line bg-white p-6 shadow-sm"><h2 className="text-2xl font-black tracking-tight">Related calculators</h2><p className="mt-4 flex flex-wrap gap-3">{allTools.filter((tool) => tool.path !== current).slice(0, 5).map((tool) => <Link key={tool.path} href={tool.path}>{tool.h1}</Link>)}</p></div>;
+}
+
+type Preset = { title: string; href: string; inputs: string[]; output: string; note: string };
+
+function PresetCard({ preset }: { preset: Preset }) {
+  return (
+    <aside className="mt-8 rounded-3xl border border-blue-100 bg-blue-50 p-6 shadow-sm">
+      <p className="text-sm font-black uppercase tracking-[0.16em] text-blue-700">Preset calculator input</p>
+      <h2 className="mt-2 text-2xl font-black tracking-tight">{preset.title}</h2>
+      <ul className="mt-4 grid gap-2 text-sm text-blue-950 md:grid-cols-2">
+        {preset.inputs.map((input) => <li key={input} className="rounded-2xl bg-white/80 p-3">{input}</li>)}
+      </ul>
+      <p className="mt-4 font-bold text-blue-950">Example output: {preset.output}</p>
+      <p className="mt-2 text-sm text-blue-900">{preset.note}</p>
+      <Link className="mt-5 inline-block rounded-full bg-blue-700 px-5 py-3 font-bold text-white no-underline" href={preset.href}>Open calculator with this preset</Link>
+    </aside>
+  );
+}
+
+function presetForPage(page: ContentPage): Preset | null {
+  const presets: Record<string, Preset> = {
+    '/room-size/what-size-ac-for-150-sq-ft/': {
+      title: '150 sq ft room AC preset',
+      href: '/room-ac-btu-calculator/?areaSqft=150&ceilingHeightFt=8&sunExposure=average&occupants=2&insulation=average',
+      inputs: ['Area: 150 sq ft', 'Ceiling: 8 ft', 'Sun: average', 'Occupants: 2', 'Insulation: average'],
+      output: 'About 3,000 BTU/h before adjustment range.',
+      note: 'Change sun, kitchen heat or insulation on the calculator page before choosing a product size.'
+    },
+    '/room-size/what-size-ac-for-300-sq-ft/': {
+      title: '300 sq ft room AC preset',
+      href: '/room-ac-btu-calculator/?areaSqft=300&ceilingHeightFt=8&sunExposure=average&occupants=2&insulation=average',
+      inputs: ['Area: 300 sq ft', 'Ceiling: 8 ft', 'Sun: average', 'Occupants: 2', 'Insulation: average'],
+      output: 'About 6,000 BTU/h before adjustment range.',
+      note: 'Use the preset as a starting point, then adjust for sunny windows, kitchen heat or poor insulation.'
+    },
+    '/room-size/what-size-ac-for-500-sq-ft/': {
+      title: '500 sq ft room AC preset',
+      href: '/room-ac-btu-calculator/?areaSqft=500&ceilingHeightFt=8&sunExposure=average&occupants=2&insulation=average',
+      inputs: ['Area: 500 sq ft', 'Ceiling: 8 ft', 'Sun: average', 'Occupants: 2', 'Insulation: average'],
+      output: 'About 10,000 BTU/h before adjustment range.',
+      note: 'High sun, poor insulation or kitchen heat can push the range higher.'
+    },
+    '/portable-ac/14000-btu-portable-ac-room-size/': {
+      title: 'Portable AC comparison preset',
+      href: '/portable-ac-size-calculator/?areaSqft=450&ceilingHeightFt=8&sunExposure=average&occupants=2&insulation=average',
+      inputs: ['Area: 450 sq ft', 'Ceiling: 8 ft', 'Sun: average', 'Occupants: 2', 'Check SACC separately'],
+      output: 'Compare the room BTU range against the product SACC or current label.',
+      note: 'A 14,000 BTU marketing label can overstate practical portable AC coverage.'
+    },
+    '/dehumidifier/what-size-dehumidifier-for-1000-sq-ft-basement/': {
+      title: '1000 sq ft basement dehumidifier preset',
+      href: '/basement-dehumidifier-size-calculator/?areaSqft=1000&dampness=damp&basement=true&temperatureF=70&continuousDrain=false',
+      inputs: ['Area: 1000 sq ft', 'Dampness: damp', 'Basement: yes', 'Temperature: 70°F', 'Drain: bucket / not continuous'],
+      output: 'Often around a mid-size to large pints/day class before water-source checks.',
+      note: 'If there is seepage or visible water, fix the water source before relying on appliance capacity.'
+    },
+    '/bathroom-fan/what-size-fan-for-small-bathroom/': {
+      title: 'Small bathroom fan CFM preset',
+      href: '/bathroom-fan-cfm-calculator/?areaSqft=45&toilet=1&shower=1&tub=0&jettedTub=0&ductLengthFt=10',
+      inputs: ['Area: 45 sq ft', 'Toilet: 1', 'Shower: 1', 'Tub: 0', 'Duct length: 10 ft'],
+      output: 'Start near 50 CFM, then check fixtures, duct losses and local code.',
+      note: 'Bathroom fan performance depends on delivered airflow, duct routing and installation details.'
+    }
+  };
+  return presets[page.path] ?? null;
 }

@@ -1,4 +1,4 @@
-import type { DampnessLevel } from '@/src/lib/config/dehumidifier-assumptions';
+import { dehumidifierAssumptions, type DampnessLevel } from '@/src/lib/config/dehumidifier-assumptions';
 import { PROFESSIONAL_BOUNDARY } from '@/src/content/site';
 
 export type DehumidifierInput = {
@@ -54,7 +54,7 @@ export function calculateDehumidifierSize(input: DehumidifierInput) {
     rangeHigh: high,
     productClass: high <= 35 ? 'compact' : high <= 55 ? 'mid-size' : high <= 80 ? 'large' : 'high-capacity',
     drainageRecommendation: input.continuousDrain ? 'Continuous drain selected; verify hose or pump installation.' : 'Plan bucket emptying or choose a continuous drain model.',
-    adjustments,
+    adjustments: [dehumidifierAssumptions.tableSourceNote, ...adjustments],
     warnings
   };
 }

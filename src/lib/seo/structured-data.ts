@@ -1,5 +1,6 @@
 import { SITE } from '@/src/content/site';
 import type { ContentPage } from '@/src/content/pages';
+import { allTools } from '@/src/content/pages';
 
 function breadcrumbForPage(page: ContentPage) {
   return {
@@ -33,6 +34,29 @@ function faqForPage(page: ContentPage) {
       acceptedAnswer: { '@type': 'Answer', text: faq.answer }
     }))
   };
+}
+
+export function structuredDataForHome() {
+  return [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: SITE.name,
+      url: SITE.url,
+      description: SITE.description
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      name: 'HVAC calculator tools',
+      itemListElement: allTools.slice(0, 8).map((tool, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: tool.h1,
+        url: `${SITE.url}${tool.path}`
+      }))
+    }
+  ];
 }
 
 export function structuredDataForPage(page: ContentPage) {

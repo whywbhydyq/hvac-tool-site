@@ -2,7 +2,8 @@ export const dehumidifierAssumptions = {
   sourceId: 'energy-star-dehumidifier',
   unit: 'pints_per_day',
   model: 'area plus dampness level with basement and low-temperature cautions',
-  notes: 'Estimate only. Actual needs depend on moisture source, air leakage, temperature, drainage and product rating method.'
+  notes: 'Estimate only. Actual needs depend on moisture source, air leakage, temperature, drainage and product rating method.',
+  tableSourceNote: 'The pints/day lookup is an internal planning assumption based on area and dampness level. It is not an official ENERGY STAR sizing table.'
 } as const;
 
 export type DampnessLevel = 'slightly-damp' | 'damp' | 'very-damp' | 'wet';

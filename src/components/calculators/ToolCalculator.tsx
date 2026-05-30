@@ -14,6 +14,7 @@ import { formatNumber } from '@/src/lib/formatting/numbers';
 import { encodeShareParams } from '@/src/lib/share/encode';
 import { toCsv } from '@/src/lib/csv/export';
 import { ExportButtons } from '@/src/components/export/ExportButtons';
+import { validateCalculatorInput } from '@/src/lib/validation/schemas';
 
 const defaults = {
   lengthFt: '12', widthFt: '10', areaSqft: '', ceilingHeightFt: '8', sunExposure: 'average', occupants: '2', insulation: 'average', kitchen: false,
@@ -82,7 +83,8 @@ export function ToolCalculator({ kind }: { kind: ToolKind }) {
     btu: num(values.btu, 12000), tons: num(values.tons, 1), kw: num(values.kw, 3.5), pints: num(values.pints, 50), liters: num(values.liters, 24)
   }), [values]);
 
-  const result = useMemo(() => renderResult(kind, input), [kind, input]);
+  const validation = useMemo(() => validateCalculatorInput(kind, input as unknown as Record<string, unknown>), [kind, input]);
+  const result = useMemo(() => (validation.ok ? renderResult(kind, validation.data as CalculatorInput) : invalidResult(validation.errors)), [kind, validation]);
 
   useEffect(() => {
     trackToolEvent('result_shown', { tool_type: kind, result_bucket: result.summary, has_warning: result.warnings.length > 0 });
@@ -102,11 +104,13 @@ export function ToolCalculator({ kind }: { kind: ToolKind }) {
   }
 
   function shareUrl() {
+    if (!validation.ok) return window.location.href;
     const params = encodeShareParams(values as unknown as Record<string, string | number | boolean | undefined>);
     return `${window.location.origin}${window.location.pathname}?${params}`;
   }
 
   function exportCsv() {
+    if (!validation.ok) return;
     const csv = toCsv([['field', 'value'], ['tool', kind], ['result', result.summary], ['boundary', PROFESSIONAL_BOUNDARY], ...Object.entries(values)]);
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     const a = document.createElement('a');
@@ -117,24 +121,30 @@ export function ToolCalculator({ kind }: { kind: ToolKind }) {
     trackToolEvent('download_csv', { tool_type: kind, result_bucket: result.summary });
   }
 
-  function copyResult() {
-    copy(result.summary);
+  async function copyResult() {
+    if (!validation.ok) throw new Error('Invalid calculator input');
+    await copy(result.summary);
     trackToolEvent('copy_result', { tool_type: kind, result_bucket: result.summary });
   }
 
-  function copyShareUrl() {
-    copy(shareUrl());
+  async function copyShareUrl() {
+    if (!validation.ok) throw new Error('Invalid calculator input');
+    await copy(shareUrl());
     trackToolEvent('copy_share_link', { tool_type: kind, result_bucket: result.summary });
   }
 
-  const copy = (text: string) => navigator.clipboard?.writeText(text);
+  async function copy(text: string) {
+    if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+    await navigator.clipboard.writeText(text);
+  }
 
   return (
     <section className="grid gap-6 lg:grid-cols-[1fr_.9fr]">
       <form className="rounded-3xl border border-line bg-white p-6 shadow-sm" onSubmit={handleSubmit}>
         <h2 className="text-2xl font-black tracking-tight">Inputs</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-2">{renderInputs(kind, values, set)}</div>
-        <ExportButtons onCopyResult={copyResult} onCopyAssumptions={() => copy(PROFESSIONAL_BOUNDARY)} onShare={copyShareUrl} onCsv={exportCsv} />
+        {!validation.ok ? <div className="mt-5 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm font-semibold text-orange-900">{validation.errors.map((error) => <p key={error}>• {error}</p>)}</div> : null}
+        <ExportButtons onCopyResult={copyResult} onCopyAssumptions={() => copy(PROFESSIONAL_BOUNDARY)} onShare={copyShareUrl} onCsv={exportCsv} canUseResult={validation.ok} />
       </form>
       <aside className="rounded-3xl border border-line bg-white p-6 shadow-sm" aria-live="polite">
         <h2 className="text-2xl font-black tracking-tight">Result</h2>
@@ -167,6 +177,16 @@ function renderInputs(kind: ToolKind, values: Values, set: (name: keyof Values, 
 
 function acInput(data: CalculatorInput): AcBtuInput {
   return { lengthFt: data.lengthFt, widthFt: data.widthFt, areaSqft: data.areaSqft, ceilingHeightFt: data.ceilingHeightFt, sunExposure: data.sunExposure, occupants: data.occupants, kitchen: data.kitchen, insulation: data.insulation };
+}
+
+function invalidResult(errors: string[]): RenderedResult {
+  return {
+    summary: 'Fix the highlighted inputs before using this estimate',
+    metrics: [{ label: 'Validation', value: `${errors.length} issue${errors.length === 1 ? '' : 's'}` }],
+    formula: 'No calculation is shown until the input range is valid.',
+    notes: ['Calculator inputs are validated before copying, sharing, downloading or printing.'],
+    warnings: errors
+  };
 }
 
 function renderResult(kind: ToolKind, data: CalculatorInput): RenderedResult {

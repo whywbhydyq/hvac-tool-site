@@ -2,6 +2,9 @@ import type { MetadataRoute } from 'next';
 import { SITE } from '@/src/content/site';
 import { allPagePaths } from '@/src/content/pages';
 
+export const dynamic = 'force-static';
+export const revalidate = false;
+
 const primaryPaths = new Set([
   '/',
   '/room-ac-btu-calculator/',

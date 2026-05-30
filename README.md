@@ -19,11 +19,10 @@ The project follows the development plan in `docs/hvac-tool-site/development-pla
 
 ```bash
 npm install
-npm run check
 npm run dev
-npm run build
-npm run test:e2e
 ```
+
+The handoff flow does not require running build, test, lint, typecheck, or end-to-end test commands.
 
 ## Boundary
 

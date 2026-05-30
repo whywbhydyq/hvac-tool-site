@@ -32,8 +32,8 @@ export function ExportButtons({ onCopyResult, onCopyAssumptions, onShare, onCsv,
   return (
     <div className="mt-5 no-print" aria-label="Result actions">
       <div className="flex flex-wrap gap-2">
-        <button className="rounded-full bg-blue-700 px-4 py-2 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50" type="submit" aria-label="Update the calculator estimate" disabled={!canUseResult}>
-          Update estimate
+        <button className="rounded-full bg-blue-700 px-4 py-2 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50" type="submit" aria-label="Review the current calculator estimate" disabled={!canUseResult}>
+          Review estimate
         </button>
         <button className={secondaryButton} type="button" onClick={() => run('result', 'Copied result.', onCopyResult)} aria-label="Copy the result summary" disabled={!canUseResult}>
           {status?.key === 'result' && status.tone === 'ok' ? 'Copied' : 'Copy result'}

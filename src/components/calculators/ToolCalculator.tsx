@@ -23,6 +23,18 @@ const defaults = {
 };
 
 type Values = typeof defaults;
+
+function defaultValuesForTool(kind: ToolKind): Values {
+  const next: Values = { ...defaults };
+  if (['dehumidifier', 'basement-dehumidifier'].includes(kind)) {
+    next.areaSqft = '1000';
+    next.basement = kind === 'basement-dehumidifier';
+  }
+  if (kind === 'bathroom-fan') {
+    next.areaSqft = '80';
+  }
+  return next;
+}
 type CalculatorInput = {
   lengthFt: number; widthFt: number; areaSqft: number; ceilingHeightFt: number;
   sunExposure: 'average' | 'shaded' | 'sunny'; occupants: number; insulation: 'poor' | 'average' | 'good'; kitchen: boolean;
@@ -58,22 +70,23 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 export function ToolCalculator({ kind }: { kind: ToolKind }) {
-  const [values, setValues] = useState<Values>(defaults);
+  const [values, setValues] = useState<Values>(() => defaultValuesForTool(kind));
   const hasStartedInput = useRef(false);
+  const trackedResultKinds = useRef<Set<ToolKind>>(new Set());
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setValues((current) => {
-      const next = { ...current };
-      for (const key of Object.keys(next) as Array<keyof Values>) {
-        const value = params.get(key);
-        if (value == null) continue;
-        if (typeof next[key] === 'boolean') (next as Record<string, string | boolean>)[key] = value === 'true' || value === 'on';
-        else (next as Record<string, string | boolean>)[key] = value;
-      }
-      return next;
-    });
-  }, []);
+    const next = defaultValuesForTool(kind);
+    for (const key of Object.keys(next) as Array<keyof Values>) {
+      const value = params.get(key);
+      if (value == null) continue;
+      if (typeof next[key] === 'boolean') (next as Record<string, string | boolean>)[key] = value === 'true' || value === 'on';
+      else (next as Record<string, string | boolean>)[key] = value;
+    }
+    if (kind === 'basement-dehumidifier') next.basement = true;
+    hasStartedInput.current = false;
+    setValues(next);
+  }, [kind]);
 
   const input: CalculatorInput = useMemo(() => ({
     lengthFt: num(values.lengthFt, 12), widthFt: num(values.widthFt, 10), areaSqft: num(values.areaSqft, 0), ceilingHeightFt: num(values.ceilingHeightFt, 8),
@@ -87,8 +100,10 @@ export function ToolCalculator({ kind }: { kind: ToolKind }) {
   const result = useMemo(() => (validation.ok ? renderResult(kind, validation.data as CalculatorInput) : invalidResult(validation.errors)), [kind, validation]);
 
   useEffect(() => {
+    if (!validation.ok || trackedResultKinds.current.has(kind)) return;
+    trackedResultKinds.current.add(kind);
     trackToolEvent('result_shown', { tool_type: kind, result_bucket: result.summary, has_warning: result.warnings.length > 0 });
-  }, [kind, result.summary, result.warnings.length]);
+  }, [kind, result.summary, result.warnings.length, validation.ok]);
 
   function set(name: keyof Values, value: string | boolean) {
     if (!hasStartedInput.current) {
@@ -105,7 +120,7 @@ export function ToolCalculator({ kind }: { kind: ToolKind }) {
 
   function shareUrl() {
     if (!validation.ok) return window.location.href;
-    const params = encodeShareParams(values as unknown as Record<string, string | number | boolean | undefined>);
+    const params = encodeShareParams({ ...values, tool: kind } as unknown as Record<string, string | number | boolean | undefined>);
     return `${window.location.origin}${window.location.pathname}?${params}`;
   }
 
@@ -159,20 +174,47 @@ export function ToolCalculator({ kind }: { kind: ToolKind }) {
 }
 
 function renderInputs(kind: ToolKind, values: Values, set: (name: keyof Values, value: string | boolean) => void) {
+  const inputClass = 'rounded-xl border border-line p-2';
   const room = <>
-    <Field label="Length ft"><input className="rounded-xl border border-line p-2" value={values.lengthFt} onChange={(e) => set('lengthFt', e.target.value)} type="number" min="1" step="0.1" /></Field>
-    <Field label="Width ft"><input className="rounded-xl border border-line p-2" value={values.widthFt} onChange={(e) => set('widthFt', e.target.value)} type="number" min="1" step="0.1" /></Field>
-    <Field label="Area override sq ft"><input className="rounded-xl border border-line p-2" value={values.areaSqft} onChange={(e) => set('areaSqft', e.target.value)} type="number" min="0" /></Field>
-    <Field label="Ceiling height ft"><input className="rounded-xl border border-line p-2" value={values.ceilingHeightFt} onChange={(e) => set('ceilingHeightFt', e.target.value)} type="number" min="1" step="0.1" /></Field>
+    <Field label="Length ft"><input className={inputClass} value={values.lengthFt} onChange={(e) => set('lengthFt', e.target.value)} type="number" min="1" step="0.1" /></Field>
+    <Field label="Width ft"><input className={inputClass} value={values.widthFt} onChange={(e) => set('widthFt', e.target.value)} type="number" min="1" step="0.1" /></Field>
+    <Field label="Area override sq ft"><input className={inputClass} value={values.areaSqft} onChange={(e) => set('areaSqft', e.target.value)} type="number" min="0" /></Field>
+    <Field label="Ceiling height ft"><input className={inputClass} value={values.ceilingHeightFt} onChange={(e) => set('ceilingHeightFt', e.target.value)} type="number" min="1" step="0.1" /></Field>
   </>;
-  if (['ac', 'window-ac', 'portable-ac'].includes(kind)) return <>{room}<Field label="Sun exposure"><select className="rounded-xl border border-line p-2" value={values.sunExposure} onChange={(e) => set('sunExposure', e.target.value)}><option value="average">Average</option><option value="shaded">Heavily shaded</option><option value="sunny">Very sunny</option></select></Field><Field label="Occupants"><input className="rounded-xl border border-line p-2" value={values.occupants} onChange={(e) => set('occupants', e.target.value)} type="number" min="0" /></Field><Field label="Insulation"><select className="rounded-xl border border-line p-2" value={values.insulation} onChange={(e) => set('insulation', e.target.value)}><option value="average">Average</option><option value="poor">Poor</option><option value="good">Good</option></select></Field><label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input checked={values.kitchen} onChange={(e) => set('kitchen', e.target.checked)} type="checkbox" />Kitchen / heat source</label></>;
-  if (['dehumidifier', 'basement-dehumidifier'].includes(kind)) return <><Field label="Area sq ft"><input className="rounded-xl border border-line p-2" value={values.areaSqft || '1000'} onChange={(e) => set('areaSqft', e.target.value)} type="number" min="1" /></Field><Field label="Dampness"><select className="rounded-xl border border-line p-2" value={values.dampness} onChange={(e) => set('dampness', e.target.value)}><option value="slightly-damp">Slightly damp</option><option value="damp">Damp</option><option value="very-damp">Very damp</option><option value="wet">Wet</option></select></Field><Field label="Temperature F"><input className="rounded-xl border border-line p-2" value={values.temperatureF} onChange={(e) => set('temperatureF', e.target.value)} type="number" min="40" max="100" /></Field><label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input checked={kind === 'basement-dehumidifier' || values.basement} onChange={(e) => set('basement', e.target.checked)} type="checkbox" />Basement</label><label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input checked={values.waterIntrusion} onChange={(e) => set('waterIntrusion', e.target.checked)} type="checkbox" />Water intrusion</label><label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input checked={values.continuousDrain} onChange={(e) => set('continuousDrain', e.target.checked)} type="checkbox" />Continuous drain</label></>;
-  if (['cfm-by-ach', 'garage'].includes(kind)) return <>{room}<Field label="Target ACH"><input className="rounded-xl border border-line p-2" value={values.targetAch} onChange={(e) => set('targetAch', e.target.value)} type="number" min="0.1" step="0.1" /></Field></>;
-  if (kind === 'ach') return <>{room}<Field label="Fan CFM"><input className="rounded-xl border border-line p-2" value={values.cfm} onChange={(e) => set('cfm', e.target.value)} type="number" min="1" /></Field></>;
-  if (kind === 'bathroom-fan') return <><Field label="Area sq ft"><input className="rounded-xl border border-line p-2" value={values.areaSqft || '80'} onChange={(e) => set('areaSqft', e.target.value)} type="number" min="1" /></Field><Field label="Toilets"><input className="rounded-xl border border-line p-2" value={values.toilet} onChange={(e) => set('toilet', e.target.value)} type="number" min="0" /></Field><Field label="Showers"><input className="rounded-xl border border-line p-2" value={values.shower} onChange={(e) => set('shower', e.target.value)} type="number" min="0" /></Field><Field label="Tubs"><input className="rounded-xl border border-line p-2" value={values.tub} onChange={(e) => set('tub', e.target.value)} type="number" min="0" /></Field><Field label="Jetted tubs"><input className="rounded-xl border border-line p-2" value={values.jettedTub} onChange={(e) => set('jettedTub', e.target.value)} type="number" min="0" /></Field><Field label="Duct length ft"><input className="rounded-xl border border-line p-2" value={values.ductLengthFt} onChange={(e) => set('ductLengthFt', e.target.value)} type="number" min="0" /></Field></>;
-  if (kind === 'tonnage') return <><Field label="BTU/h"><input className="rounded-xl border border-line p-2" value={values.btu} onChange={(e) => set('btu', e.target.value)} type="number" min="1" /></Field><Field label="Tons"><input className="rounded-xl border border-line p-2" value={values.tons} onChange={(e) => set('tons', e.target.value)} type="number" min="0" step="0.1" /></Field></>;
-  if (kind === 'btu-kw') return <><Field label="BTU/h"><input className="rounded-xl border border-line p-2" value={values.btu} onChange={(e) => set('btu', e.target.value)} type="number" min="1" /></Field><Field label="Thermal kW"><input className="rounded-xl border border-line p-2" value={values.kw} onChange={(e) => set('kw', e.target.value)} type="number" min="0" step="0.1" /></Field></>;
-  return <><Field label="US pints"><input className="rounded-xl border border-line p-2" value={values.pints} onChange={(e) => set('pints', e.target.value)} type="number" min="0" /></Field><Field label="Liters"><input className="rounded-xl border border-line p-2" value={values.liters} onChange={(e) => set('liters', e.target.value)} type="number" min="0" /></Field></>;
+
+  if (['ac', 'window-ac', 'portable-ac'].includes(kind)) return <>
+    {room}
+    <Field label="Sun exposure"><select className={inputClass} value={values.sunExposure} onChange={(e) => set('sunExposure', e.target.value)}><option value="average">Average</option><option value="shaded">Heavily shaded</option><option value="sunny">Very sunny</option></select></Field>
+    <Field label="Occupants"><input className={inputClass} value={values.occupants} onChange={(e) => set('occupants', e.target.value)} type="number" min="0" /></Field>
+    <Field label="Insulation"><select className={inputClass} value={values.insulation} onChange={(e) => set('insulation', e.target.value)}><option value="average">Average</option><option value="poor">Poor</option><option value="good">Good</option></select></Field>
+    <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input checked={values.kitchen} onChange={(e) => set('kitchen', e.target.checked)} type="checkbox" />Kitchen / heat source</label>
+  </>;
+
+  if (['dehumidifier', 'basement-dehumidifier'].includes(kind)) {
+    const lockedBasement = kind === 'basement-dehumidifier';
+    return <>
+      <Field label="Area sq ft"><input className={inputClass} value={values.areaSqft} onChange={(e) => set('areaSqft', e.target.value)} type="number" min="1" /></Field>
+      <Field label="Dampness"><select className={inputClass} value={values.dampness} onChange={(e) => set('dampness', e.target.value)}><option value="slightly-damp">Slightly damp</option><option value="damp">Damp</option><option value="very-damp">Very damp</option><option value="wet">Wet</option></select></Field>
+      <Field label="Temperature F"><input className={inputClass} value={values.temperatureF} onChange={(e) => set('temperatureF', e.target.value)} type="number" min="40" max="100" /></Field>
+      <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input checked={lockedBasement || values.basement} disabled={lockedBasement} onChange={(e) => set('basement', e.target.checked)} type="checkbox" />{lockedBasement ? 'Basement mode applied' : 'Basement'}</label>
+      <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input checked={values.waterIntrusion} onChange={(e) => set('waterIntrusion', e.target.checked)} type="checkbox" />Water intrusion</label>
+      <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input checked={values.continuousDrain} onChange={(e) => set('continuousDrain', e.target.checked)} type="checkbox" />Continuous drain</label>
+    </>;
+  }
+
+  if (['cfm-by-ach', 'garage'].includes(kind)) return <>{room}<Field label="Target ACH"><input className={inputClass} value={values.targetAch} onChange={(e) => set('targetAch', e.target.value)} type="number" min="0.1" step="0.1" /></Field></>;
+  if (kind === 'ach') return <>{room}<Field label="Fan CFM"><input className={inputClass} value={values.cfm} onChange={(e) => set('cfm', e.target.value)} type="number" min="1" /></Field></>;
+  if (kind === 'bathroom-fan') return <>
+    <Field label="Area sq ft"><input className={inputClass} value={values.areaSqft} onChange={(e) => set('areaSqft', e.target.value)} type="number" min="1" /></Field>
+    <Field label="Toilets"><input className={inputClass} value={values.toilet} onChange={(e) => set('toilet', e.target.value)} type="number" min="0" /></Field>
+    <Field label="Showers"><input className={inputClass} value={values.shower} onChange={(e) => set('shower', e.target.value)} type="number" min="0" /></Field>
+    <Field label="Tubs"><input className={inputClass} value={values.tub} onChange={(e) => set('tub', e.target.value)} type="number" min="0" /></Field>
+    <Field label="Jetted tubs"><input className={inputClass} value={values.jettedTub} onChange={(e) => set('jettedTub', e.target.value)} type="number" min="0" /></Field>
+    <Field label="Duct length ft"><input className={inputClass} value={values.ductLengthFt} onChange={(e) => set('ductLengthFt', e.target.value)} type="number" min="0" /></Field>
+  </>;
+  if (kind === 'tonnage') return <><Field label="BTU/h"><input className={inputClass} value={values.btu} onChange={(e) => set('btu', e.target.value)} type="number" min="1" /></Field><Field label="Tons"><input className={inputClass} value={values.tons} onChange={(e) => set('tons', e.target.value)} type="number" min="0" step="0.1" /></Field></>;
+  if (kind === 'btu-kw') return <><Field label="BTU/h"><input className={inputClass} value={values.btu} onChange={(e) => set('btu', e.target.value)} type="number" min="1" /></Field><Field label="Thermal kW"><input className={inputClass} value={values.kw} onChange={(e) => set('kw', e.target.value)} type="number" min="0" step="0.1" /></Field></>;
+  return <><Field label="US pints"><input className={inputClass} value={values.pints} onChange={(e) => set('pints', e.target.value)} type="number" min="0" /></Field><Field label="Liters"><input className={inputClass} value={values.liters} onChange={(e) => set('liters', e.target.value)} type="number" min="0" /></Field></>;
 }
 
 function acInput(data: CalculatorInput): AcBtuInput {

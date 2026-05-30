@@ -1,5 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
-  "ignoreCommand": "bash -c 'latest=$(git ls-remote origin refs/heads/main | cut -f1); test \"$VERCEL_GIT_COMMIT_REF\" = main && test -n \"$VERCEL_GIT_COMMIT_SHA\" && test -n \"$latest\" && test \"$VERCEL_GIT_COMMIT_SHA\" != \"$latest\"'"
+  "ignoreCommand": "bash -lc 'latest=$(git ls-remote https://github.com/whywbhydyq/hvac-tool-site.git refs/heads/main 2>/dev/null | cut -f1); [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ] && [ -n \"$VERCEL_GIT_COMMIT_SHA\" ] && [ -n \"$latest\" ] && [ \"$VERCEL_GIT_COMMIT_SHA\" != \"$latest\" ]'"
 }

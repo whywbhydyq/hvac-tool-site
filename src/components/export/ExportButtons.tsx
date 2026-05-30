@@ -32,10 +32,7 @@ export function ExportButtons({ onCopyResult, onCopyAssumptions, onShare, onCsv,
   return (
     <div className="mt-5 no-print" aria-label="Result actions">
       <div className="flex flex-wrap gap-2">
-        <button className="rounded-full bg-blue-700 px-4 py-2 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50" type="submit" aria-label="Review the current calculator estimate" disabled={!canUseResult}>
-          Review estimate
-        </button>
-        <button className={secondaryButton} type="button" onClick={() => run('result', 'Copied result.', onCopyResult)} aria-label="Copy the result summary" disabled={!canUseResult}>
+        <button className="rounded-full bg-blue-700 px-4 py-2 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50" type="button" onClick={() => run('result', 'Copied result.', onCopyResult)} aria-label="Copy the current result summary" disabled={!canUseResult}>
           {status?.key === 'result' && status.tone === 'ok' ? 'Copied' : 'Copy result'}
         </button>
         <button className={secondaryButton} type="button" onClick={() => run('share', 'Copied share link.', onShare)} aria-label="Copy a shareable link with the current inputs" disabled={!canUseResult}>
@@ -44,7 +41,7 @@ export function ExportButtons({ onCopyResult, onCopyAssumptions, onShare, onCsv,
         <button className={secondaryButton} type="button" onClick={() => run('csv', 'CSV downloaded.', onCsv)} aria-label="Download the current result as a CSV file" disabled={!canUseResult}>
           Download CSV
         </button>
-        <button className={secondaryButton} type="button" onClick={() => run('assumptions', 'Copied assumptions.', onCopyAssumptions)} aria-label="Copy the professional boundary note">
+        <button className={secondaryButton} type="button" onClick={() => run('assumptions', 'Copied assumptions.', onCopyAssumptions)} aria-label="Copy the professional boundary note" disabled={!canUseResult}>
           {status?.key === 'assumptions' && status.tone === 'ok' ? 'Copied' : 'Copy assumptions'}
         </button>
         <button className="rounded-full border border-line px-4 py-2 font-bold" type="button" onClick={() => run('print', 'Print dialog opened.', () => window.print())} aria-label="Print this calculator result or save as PDF" disabled={!canUseResult}>
@@ -52,7 +49,7 @@ export function ExportButtons({ onCopyResult, onCopyAssumptions, onShare, onCsv,
         </button>
       </div>
       {status ? <p className={`mt-3 text-sm font-semibold ${status.tone === 'ok' ? 'text-emerald-700' : 'text-red-700'}`} role="status">{status.label}</p> : null}
-      {!canUseResult ? <p className="mt-3 text-sm font-semibold text-orange-800" role="status">Fix the highlighted input before copying, sharing, downloading or printing.</p> : null}
+      {!canUseResult ? <p className="mt-3 text-sm font-semibold text-orange-800" role="status">Fix the highlighted input before copying results, sharing, downloading or printing.</p> : null}
     </div>
   );
 }

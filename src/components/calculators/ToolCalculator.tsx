@@ -157,12 +157,14 @@ export function ToolCalculator({ kind }: { kind: ToolKind }) {
     <section className="grid gap-6 lg:grid-cols-[1fr_.9fr]">
       <form className="rounded-3xl border border-line bg-white p-6 shadow-sm" onSubmit={handleSubmit}>
         <h2 className="text-2xl font-black tracking-tight">Inputs</h2>
+        <p className="mt-2 text-sm font-semibold text-slate-500">Results update automatically as you edit valid inputs.</p>
         <div className="mt-5 grid gap-4 md:grid-cols-2">{renderInputs(kind, values, set)}</div>
         {!validation.ok ? <div className="mt-5 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm font-semibold text-orange-900">{validation.errors.map((error) => <p key={error}>• {error}</p>)}</div> : null}
         <ExportButtons onCopyResult={copyResult} onCopyAssumptions={() => copy(PROFESSIONAL_BOUNDARY)} onShare={copyShareUrl} onCsv={exportCsv} canUseResult={validation.ok} />
       </form>
       <aside className="rounded-3xl border border-line bg-white p-6 shadow-sm" aria-live="polite">
         <h2 className="text-2xl font-black tracking-tight">Result</h2>
+        <p className="mt-2 text-sm font-semibold text-slate-500">Live estimate based on the current inputs.</p>
         <p className="mt-4 text-3xl font-black leading-tight tracking-tight">{result.summary}</p>
         <div className="mt-5 grid gap-3 md:grid-cols-2">{result.metrics.map((metric) => <Metric key={metric.label} {...metric} />)}</div>
         <pre className="mt-5 overflow-auto rounded-2xl bg-slate-950 p-4 text-sm text-slate-100">{result.formula}</pre>
@@ -226,7 +228,7 @@ function invalidResult(errors: string[]): RenderedResult {
     summary: 'Fix the highlighted inputs before using this estimate',
     metrics: [{ label: 'Validation', value: `${errors.length} issue${errors.length === 1 ? '' : 's'}` }],
     formula: 'No calculation is shown until the input range is valid.',
-    notes: ['Calculator inputs are validated before copying, sharing, downloading or printing.'],
+    notes: ['Calculator inputs are validated before copying results, sharing, downloading or printing.'],
     warnings: errors
   };
 }
